@@ -83,16 +83,13 @@ const Products: React.FC = () => {
                   <div className="d-flex justify-content-between align-items-center">
                     <span className="fs-5">${product.price.toFixed(2)}</span>
                     <span className={`badge ${product.stockQuantity > 0 ? 'bg-success' : 'bg-danger'}`}>
-                      {product.stockQuantity > 0 ? 'In Stock' : 'Out of Stock'}
+                      Stok: {product.stockQuantity}
                     </span>
                   </div>
                 </div>
-                <div className="card-footer d-flex justify-content-between">
-                  <Link to={`/products/${product.id}`} className="btn btn-sm btn-outline-primary">
+                <div className="card-footer">
+                  <Link to={`/products/${product.id}`} className="btn btn-sm btn-outline-primary w-100">
                     View Details
-                  </Link>
-                  <Link to={`/products/edit/${product.id}`} className="btn btn-sm btn-outline-secondary">
-                    Edit
                   </Link>
                 </div>
               </div>
