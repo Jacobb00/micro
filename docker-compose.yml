@@ -2,9 +2,9 @@ version: '3.8'
 
 services:
   user-service:
-    build: .
+    build: ./user-management
     ports:
-      - "3001:3001"
+      - "5002:3001"
     depends_on:
       - postgres
       - rabbitmq
@@ -21,6 +21,36 @@ services:
       - microservices-network
     restart: unless-stopped
 
+  product-service:
+    build: ./product-service
+    ports:
+      - "5001:80"
+    depends_on:
+      - mongodb
+      - rabbitmq
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - MongoDbSettings__ConnectionString=mongodb://mongodb:27017
+      - MongoDbSettings__DatabaseName=ProductsDb
+      - MongoDbSettings__ProductsCollectionName=Products
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=guest
+      - RabbitMQ__Password=guest
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - user-service
+      - product-service
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
   postgres:
     image: postgres:15-alpine
     ports:
@@ -31,6 +61,16 @@ services:
       - POSTGRES_PASSWORD=postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
     networks:
       - microservices-network
     restart: unless-stopped
@@ -55,4 +95,5 @@ networks:
 
 volumes:
   postgres_data:
+  mongodb_data:
   rabbitmq_data: 
