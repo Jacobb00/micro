@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Product, ProductFilterParams, ProductListResponse } from '../types/Product';
 
-const API_URL = 'http://10.47.7.145:5001/api/Products';
+const API_URL = 'http://localhost/api/Products';
 
 class ProductService {
   async getProducts(category?: string): Promise<ProductListResponse> {
