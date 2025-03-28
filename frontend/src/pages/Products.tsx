@@ -15,7 +15,7 @@ const Products: React.FC = () => {
       try {
         setLoading(true);
         const response = await productService.getProducts(selectedCategory);
-        setProducts(Array.isArray(response) ? response : response.products || []);
+        setProducts(response.products);
         setLoading(false);
       } catch (err: any) {
         setError('Failed to load products. Please try again later.');
