@@ -45,9 +45,8 @@ const Products: React.FC = () => {
 
   return (
     <div>
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      <div className="mb-4">
         <h2>Products</h2>
-        <Link to="/products/new" className="btn btn-primary">Add New Product</Link>
       </div>
       
       <div className="mb-4">
@@ -105,4 +104,4 @@ const Products: React.FC = () => {
   );
 };
 
-export default Products; 
+export default Products;
