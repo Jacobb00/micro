@@ -69,6 +69,38 @@ app.delete('/api/cart/remove', authenticateJWT, removeFromCartHandler);
 // Remove product from cart - Direct path
 app.delete('/remove', authenticateJWT, removeFromCartHandler);
 
+// Clear user's cart after successful payment
+app.post('/clear', authenticateJWT, (req, res) => {
+    const userId = req.user.id;
+    
+    console.log(`Clearing cart for user ${userId}`);
+    
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    
+    // Clear the cart
+    userCarts[userId] = [];
+    
+    console.log(`Cart cleared for user ${userId}`);
+    
+    res.status(200).json({ message: 'Cart cleared', cart: [] });
+});
+
+// Also add API gateway path
+app.post('/api/cart/clear', authenticateJWT, (req, res) => {
+    const userId = req.user.id;
+    
+    console.log(`Clearing cart for user ${userId}`);
+    
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    
+    // Clear the cart
+    userCarts[userId] = [];
+    
+    console.log(`Cart cleared for user ${userId}`);
+    
+    res.status(200).json({ message: 'Cart cleared', cart: [] });
+});
+
 // Handler functions
 function addToCartHandler(req, res) {
     const userId = req.user.id;

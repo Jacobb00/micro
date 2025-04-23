@@ -60,6 +60,7 @@ services:
       - user-service
       - product-service
       - cart-service
+      - payment-service
     environment:
       - PORT=4000
       - JWT_SECRET=your_jwt_secret_key
@@ -74,6 +75,43 @@ services:
     environment:
       - PORT=4003
       - JWT_SECRET=your_jwt_secret_key
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  payment-service:
+    build: ./payment-service
+    ports:
+      - "4004:4004"
+    depends_on:
+      - rabbitmq
+      - product-service
+      - cart-service
+    environment:
+      - PORT=4004
+      - JWT_SECRET=your_jwt_secret_key
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - PRODUCT_SERVICE_URL=http://product-service:80/api/products
+      - CART_SERVICE_URL=http://cart-service:4003
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  stock-updater:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile.stock-updater
+    depends_on:
+      - rabbitmq
+      - product-service
+      - cart-service
+    environment:
+      - JWT_SECRET=your_jwt_secret_key
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - PRODUCT_SERVICE_URL=http://product-service:80/api/products
+      - CART_SERVICE_URL=http://cart-service:4003
     networks:
       - microservices-network
     restart: unless-stopped

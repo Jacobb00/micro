@@ -81,6 +81,22 @@ app.use('/cart', authenticateJWT, createProxyMiddleware({
   }
 }));
 
+// Payment Service
+app.use('/payments', authenticateJWT, createProxyMiddleware({
+  target: 'http://payment-service:4004',
+  changeOrigin: true,
+  pathRewrite: { '^/payments': '/api/payments' },
+  onProxyReq: (proxyReq, req) => {
+    console.log(`Forwarding payment request to payment-service: ${req.method} ${req.url}`);
+    if (req.headers['authorization']) {
+      proxyReq.setHeader('authorization', req.headers['authorization']);
+    }
+  },
+  onProxyRes: (proxyRes) => {
+    proxyRes.headers['access-control-allow-origin'] = undefined;
+  }
+}));
+
 app.listen(port, () => {
   console.log(`API Gateway running on port ${port}`);
 });

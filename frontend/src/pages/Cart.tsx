@@ -183,9 +183,9 @@ const Cart: React.FC = () => {
               <Link to="/products" className="btn btn-outline-primary">
                 <i className="bi bi-arrow-left"></i> Alışverişe Devam Et
               </Link>
-              <button className="btn btn-success">
+              <Link to="/checkout" className="btn btn-success">
                 <i className="bi bi-credit-card"></i> Ödemeye Geç
-              </button>
+              </Link>
             </div>
           </div>
         </div>
