@@ -1,11 +1,13 @@
 import os
 import json
 import logging
+import time
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pika
 import jwt
 import requests
+from database import init_db, save_order, get_orders_by_user, get_order_details
 
 # Configure logging
 logging.basicConfig(
@@ -125,6 +127,28 @@ def check_stock(product_id, quantity):
         logger.error(f"Error checking product stock: {e}")
         return False, "Error checking product stock"
 
+async def get_product_prices(cart_items):
+    """Get product prices to store in the order database"""
+    items_with_prices = []
+    
+    for item in cart_items:
+        try:
+            product_id = item['productId']
+            response = requests.get(f"{PRODUCT_SERVICE_URL}/{product_id}")
+            if response.status_code == 200:
+                product = response.json()
+                item_with_price = item.copy()
+                item_with_price['price'] = product.get('price', 0)
+                items_with_prices.append(item_with_price)
+            else:
+                # If product not found, add without price
+                items_with_prices.append(item)
+        except Exception as e:
+            logger.error(f"Error fetching product price: {e}")
+            items_with_prices.append(item)
+    
+    return items_with_prices
+
 # API routes
 @app.route('/api/payments/process', methods=['POST'])
 def process_payment_request():
@@ -160,22 +184,83 @@ def process_payment_request():
             "message": payment_message
         }), 400
     
-    # Payment succeeded, publish events to update stock and clear cart
-    payment_data = {
-        "userId": user['id'],
-        "orderId": data.get('orderId', f"order-{user['id']}-{int(time.time())}"),
-        "items": cart_items,
-        "totalAmount": data.get('totalAmount', 0),
-        "paymentMethod": payment_info.get('paymentMethod', 'card')
-    }
+    # Get product prices for the items
+    try:
+        # Create order data for storage and events
+        order_id = f"order-{user['id']}-{int(time.time())}"
+        
+        # Payment succeeded, save order to database
+        order_data = {
+            "userId": user['id'],
+            "orderId": order_id,
+            "items": cart_items,  # Will add prices when saving to database
+            "totalAmount": data.get('totalAmount', 0),
+            "paymentMethod": payment_info.get('paymentMethod', 'card')
+        }
+        
+        # Save order to MySQL database
+        db_save_success = save_order(order_data)
+        if not db_save_success:
+            logger.warning("Failed to save order to database, but payment was successful")
+        
+        # Publish event to update stock and clear cart
+        publish_payment_event('payment.successful', order_data)
+        
+        return jsonify({
+            "success": True,
+            "message": "Payment processed successfully",
+            "orderId": order_id
+        }), 200
+    except Exception as e:
+        logger.error(f"Error processing payment: {e}")
+        return jsonify({
+            "success": False,
+            "message": "An error occurred during payment processing"
+        }), 500
+
+@app.route('/api/payments/orders', methods=['GET'])
+def get_user_orders():
+    """Get all orders for the authenticated user"""
+    auth_header = request.headers.get('Authorization')
+    user = authenticate_jwt(auth_header)
     
-    publish_payment_event('payment.successful', payment_data)
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
     
-    return jsonify({
-        "success": True,
-        "message": "Payment processed successfully",
-        "orderId": payment_data['orderId']
-    }), 200
+    orders = get_orders_by_user(user['id'])
+    
+    # Convert SQLAlchemy objects to dictionaries
+    orders_data = []
+    for order in orders:
+        orders_data.append({
+            "orderId": order.order_id,
+            "totalAmount": order.total_amount,
+            "status": order.status,
+            "createdAt": order.created_at.isoformat(),
+            "paymentMethod": order.payment_method
+        })
+    
+    return jsonify({"orders": orders_data}), 200
+
+@app.route('/api/payments/orders/<order_id>', methods=['GET'])
+def get_order(order_id):
+    """Get detailed information for a specific order"""
+    auth_header = request.headers.get('Authorization')
+    user = authenticate_jwt(auth_header)
+    
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    order_details = get_order_details(order_id)
+    
+    if not order_details:
+        return jsonify({"error": "Order not found"}), 404
+    
+    # Check if order belongs to authenticated user
+    if order_details['user_id'] != user['id']:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    return jsonify(order_details), 200
 
 @app.route('/api/payments/test-cards', methods=['GET'])
 def get_test_cards():
@@ -205,6 +290,11 @@ if __name__ == '__main__':
         logger.info(f"Waiting for RabbitMQ to be ready. Retries left: {retries}")
         retries -= 1
         time.sleep(5)
+    
+    # Initialize database connection
+    db_initialized = init_db()
+    if not db_initialized:
+        logger.warning("Failed to initialize database connection. Order storage will not work.")
     
     logger.info("Payment service started")
     app.run(host='0.0.0.0', port=4004) 

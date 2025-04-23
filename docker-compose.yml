@@ -87,6 +87,7 @@ services:
       - rabbitmq
       - product-service
       - cart-service
+      - mysql
     environment:
       - PORT=4004
       - JWT_SECRET=your_jwt_secret_key
@@ -94,6 +95,11 @@ services:
       - RABBITMQ_PORT=5672
       - PRODUCT_SERVICE_URL=http://product-service:80/api/products
       - CART_SERVICE_URL=http://cart-service:4003
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=payment_user
+      - MYSQL_PASSWORD=payment_password
+      - MYSQL_DATABASE=payment_db
     networks:
       - microservices-network
     restart: unless-stopped
@@ -112,6 +118,22 @@ services:
       - RABBITMQ_PORT=5672
       - PRODUCT_SERVICE_URL=http://product-service:80/api/products
       - CART_SERVICE_URL=http://cart-service:4003
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=payment_db
+      - MYSQL_USER=payment_user
+      - MYSQL_PASSWORD=payment_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password
     networks:
       - microservices-network
     restart: unless-stopped
@@ -162,3 +184,4 @@ volumes:
   postgres_data:
   mongodb_data:
   rabbitmq_data:
+  mysql_data:
