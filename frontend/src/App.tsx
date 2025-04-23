@@ -7,6 +7,7 @@ import Register from './pages/Register';
 import Products from './pages/Products';
 import ProductDetail from './pages/ProductDetail';
 import ProductForm from './pages/ProductForm';
+import Cart from './pages/Cart';
 import './App.css';
 
 // Simple Auth Guard component
@@ -33,6 +34,11 @@ const App: React.FC = () => {
           <Route path="/products/:id" element={<ProductDetail />} />
           <Route path="/products/new" element={<ProductForm />} />
           <Route path="/products/edit/:id" element={<ProductForm />} />
+          <Route path="/cart" element={
+            <ProtectedRoute>
+              <Cart />
+            </ProtectedRoute>
+          } />
         </Routes>
       </div>
     </Router>

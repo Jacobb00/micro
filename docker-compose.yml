@@ -47,6 +47,33 @@ services:
     depends_on:
       - user-service
       - product-service
+      - api-gateway
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "4001:4000"
+    depends_on:
+      - user-service
+      - product-service
+      - cart-service
+    environment:
+      - PORT=4000
+      - JWT_SECRET=your_jwt_secret_key
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  cart-service:
+    build: ./cart-service
+    ports:
+      - "4003:4003"
+    environment:
+      - PORT=4003
+      - JWT_SECRET=your_jwt_secret_key
     networks:
       - microservices-network
     restart: unless-stopped
@@ -96,4 +123,4 @@ networks:
 volumes:
   postgres_data:
   mongodb_data:
-  rabbitmq_data: 
+  rabbitmq_data:

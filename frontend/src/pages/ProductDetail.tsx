@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import productService, { Product } from '../services/product.service';
+import productService from '../services/product.service';
+import cartService from '../services/cartService';
+import { Product } from '../types/Product';
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -9,6 +11,8 @@ const ProductDetail: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
   const [quantity, setQuantity] = useState<number>(1);
+  const [addingToCart, setAddingToCart] = useState<boolean>(false);
+  const [cartSuccess, setCartSuccess] = useState<string>('');
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -38,9 +42,29 @@ const ProductDetail: React.FC = () => {
     }
   };
 
-  const handleAddToCart = () => {
-    // This will be implemented later with a cart service
-    alert(`Added ${quantity} item(s) to cart`);
+  const handleAddToCart = async () => {
+    if (!product) return;
+    
+    try {
+      setAddingToCart(true);
+      setError('');
+      setCartSuccess('');
+      
+      console.log(`Attempting to add product ${product.id} to cart, quantity: ${quantity}`);
+      const cartResult = await cartService.addToCart(product.id, quantity);
+      console.log('Cart update result:', cartResult);
+      
+      setCartSuccess(`Ürün sepete eklendi! Ürün adedi: ${quantity}`);
+      // Redirect after a delay to show the success message
+      setTimeout(() => {
+        navigate('/cart');
+      }, 1000);
+    } catch (err: any) {
+      console.error('Add to cart error:', err);
+      setError('Sepete eklerken bir hata oluştu: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setAddingToCart(false);
+    }
   };
 
   if (loading) {
@@ -101,6 +125,9 @@ const ProductDetail: React.FC = () => {
             </span>
           </div>
 
+          {error && <div className="alert alert-danger">{error}</div>}
+          {cartSuccess && <div className="alert alert-success">{cartSuccess}</div>}
+
           <p>{product.description}</p>
 
           {product.stockQuantity > 0 && (
@@ -132,8 +159,9 @@ const ProductDetail: React.FC = () => {
               <button 
                 className="btn btn-primary"
                 onClick={handleAddToCart}
+                disabled={addingToCart}
               >
-                Add to Cart
+                {addingToCart ? 'Ekleniyor...' : 'Add to Cart'}
               </button>
             </div>
           )}
