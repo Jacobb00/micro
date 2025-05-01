@@ -1,0 +1,69 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpecs = require('./config/swagger');
+const connectDB = require('./config/db');
+const { connectRabbitMQ } = require('./config/rabbitmq');
+const { setupConsumers } = require('./services/messageConsumer');
+const { errorHandler, notFound } = require('./middleware/errorHandler');
+const logger = require('./config/logger');
+
+// Import routes
+const orderRoutes = require('./routes/orderRoutes');
+
+// Create Express app
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Middleware
+app.use(cors());
+app.use(bodyParser.json());
+
+// API Routes
+app.use('/api/orders', orderRoutes);
+
+// Swagger API Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', service: 'order-tracking-service' });
+});
+
+// Error handling middleware
+app.use(notFound);
+app.use(errorHandler);
+
+// Start server
+const startServer = async () => {
+  try {
+    // Connect to MongoDB
+    await connectDB();
+    
+    // Connect to RabbitMQ
+    await connectRabbitMQ();
+    
+    // Setup message consumers
+    await setupConsumers();
+    
+    // Start Express server
+    app.listen(PORT, () => {
+      logger.info(`Order Tracking Service running on port ${PORT}`);
+      logger.info(`API Documentation available at http://localhost:${PORT}/api-docs`);
+    });
+  } catch (error) {
+    logger.error(`Failed to start server: ${error.message}`);
+    process.exit(1);
+  }
+};
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err) => {
+  logger.error(`Unhandled Rejection: ${err.message}`);
+  // Close server & exit process
+  process.exit(1);
+});
+
+startServer(); 

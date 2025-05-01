@@ -9,6 +9,8 @@ import ProductDetail from './pages/ProductDetail';
 import ProductForm from './pages/ProductForm';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
+import Orders from './pages/Orders';
+import OrderDetail from './pages/OrderDetail';
 import './App.css';
 
 // Simple Auth Guard component
@@ -43,6 +45,16 @@ const App: React.FC = () => {
           <Route path="/checkout" element={
             <ProtectedRoute>
               <Checkout />
+            </ProtectedRoute>
+          } />
+          <Route path="/orders" element={
+            <ProtectedRoute>
+              <Orders />
+            </ProtectedRoute>
+          } />
+          <Route path="/orders/:id" element={
+            <ProtectedRoute>
+              <OrderDetail />
             </ProtectedRoute>
           } />
         </Routes>

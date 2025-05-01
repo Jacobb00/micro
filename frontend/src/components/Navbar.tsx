@@ -36,6 +36,9 @@ const Navbar: React.FC = () => {
                 <li className="nav-item">
                   <Link className="nav-link" to="/cart">Sepetim</Link>
                 </li>
+                <li className="nav-item">
+                  <Link className="nav-link" to="/orders">Siparişlerim</Link>
+                </li>
                 {/* Add more nav items here as needed */}
               </ul>
               
