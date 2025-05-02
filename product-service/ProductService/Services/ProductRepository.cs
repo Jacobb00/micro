@@ -13,6 +13,7 @@ namespace ProductService.Services
     {
         Task<Product> GetByIdAsync(string id);
         Task<ProductListResponse> GetProductsAsync(ProductFilterParams filterParams);
+        Task<ProductListResponse> GetAllProductsAsync();
         Task<string> CreateAsync(Product product);
         Task<bool> UpdateAsync(string id, Product product);
         Task<bool> UpdateStockAsync(string id, int quantity, bool isIncrement);
@@ -97,6 +98,22 @@ namespace ProductService.Services
                 TotalCount = (int)totalCount,
                 Page = filterParams.Page,
                 PageSize = filterParams.PageSize
+            };
+        }
+
+        public async Task<ProductListResponse> GetAllProductsAsync()
+        {
+            var filter = Builders<Product>.Filter.Eq(p => p.IsActive, true);
+            var products = await _context.Products
+                .Find(filter)
+                .ToListAsync();
+
+            return new ProductListResponse
+            {
+                Products = products.Select(p => MapToDto(p)).ToList(),
+                TotalCount = products.Count,
+                Page = 1,
+                PageSize = products.Count
             };
         }
 

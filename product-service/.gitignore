@@ -1,0 +1,147 @@
+# .NET/.NET Core için gitignore
+
+# Derleme sonuçları
+bin/
+obj/
+
+# MSTest test sonuçları
+TestResults/
+
+# Visual Studio dosyaları
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Visual Studio Code özel ayarları
+.vscode/
+.VSCodeCounter/
+
+# Build sonuçları
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+msbuild.log
+msbuild.err
+msbuild.wrn
+
+# NuGet paketleri
+*.nupkg
+# NuGet Symbol paketleri
+*.snupkg
+# NuGet sembollerini göz ardı et, yerel veya yükseltilmiş paketleri gözardı etmek için:
+packages/
+# except build/, which is used as an MSBuild target.
+!packages/build/
+# Uncomment if necessary however generally it will be regenerated when needed
+#!packages/repositories.config
+
+# Visual Studio cache dosyaları
+# dosyalar .sln filelardan gelebilir
+.vs/
+# Visual Studio profil bilgisi
+*.psess
+*.vsp
+*.vspx
+*.sap
+
+# ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# TeamCity build klasörü
+_TeamCity*
+
+# DotCover
+*.dotCover
+
+# NCrunch
+_NCrunch_*
+.*crunch*.local.xml
+nCrunchTemp_*
+
+# SQL Server dosyaları
+*.mdf
+*.ldf
+*.ndf
+
+# İş dosyaları
+*.jfm
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# StyleCop
+StyleCopReport.xml
+
+# Web Yayınlama Dosyaları
+**/publish/
+**/Properties/PublishProfiles/
+*.pubxml
+*.publishproj
+
+# .NET Core projesi tarafından üretilen dosyalar
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Docker için
+docker-compose.override.yml
+
+# Visual Studio Kimlik Doğrulama Deposu
+.identityservice/
+
+# Azure Deployment dosyaları
+*.Parameters.xml
+*.pubxml
+
+# Geçici dosyalar
+.tmp/
+.temp/
+
+# MacOS dosyaları
+.DS_Store
+
+# Windows görüntü dosyası cache'leri
+Thumbs.db
+ehthumbs.db
+ehthumbs_vista.db
+
+# Log dosyaları
+*.log
+
+# Özel amaçlı klasörler
+**/node_modules/
+**/jspm_packages/
+**/bower_components/
+
+# Environment değişkenleri
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# appsettings
+appsettings.Development.json
+appsettings.Production.json
+appsettings.Staging.json
+
+# MongoDB
+*.mongodb
+
+# IDEs and editors
+.idea/
+*.swp
+*.swo 

@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\celik\\OneDrive\\Masaüstü\\micro\\product-service\\ProductService\\ProductService.csproj": {}
+    "C:\\Users\\kaany\\Desktop\\vscode workspace\\Microservices Project\\micro2\\product-service\\ProductService\\ProductService.csproj": {}
   },
   "projects": {
-    "C:\\Users\\celik\\OneDrive\\Masaüstü\\micro\\product-service\\ProductService\\ProductService.csproj": {
+    "C:\\Users\\kaany\\Desktop\\vscode workspace\\Microservices Project\\micro2\\product-service\\ProductService\\ProductService.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\celik\\OneDrive\\Masaüstü\\micro\\product-service\\ProductService\\ProductService.csproj",
+        "projectUniqueName": "C:\\Users\\kaany\\Desktop\\vscode workspace\\Microservices Project\\micro2\\product-service\\ProductService\\ProductService.csproj",
         "projectName": "ProductService",
-        "projectPath": "C:\\Users\\celik\\OneDrive\\Masaüstü\\micro\\product-service\\ProductService\\ProductService.csproj",
-        "packagesPath": "C:\\Users\\celik\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\celik\\OneDrive\\Masaüstü\\micro\\product-service\\ProductService\\obj\\",
+        "projectPath": "C:\\Users\\kaany\\Desktop\\vscode workspace\\Microservices Project\\micro2\\product-service\\ProductService\\ProductService.csproj",
+        "packagesPath": "C:\\Users\\kaany\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\kaany\\Desktop\\vscode workspace\\Microservices Project\\micro2\\product-service\\ProductService\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\celik\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\kaany\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net9.0"
@@ -63,6 +63,22 @@
             "RabbitMQ.Client": {
               "target": "Package",
               "version": "[7.1.2, )"
+            },
+            "Swashbuckle.AspNetCore": {
+              "target": "Package",
+              "version": "[6.5.0, )"
+            },
+            "Swashbuckle.AspNetCore.Swagger": {
+              "target": "Package",
+              "version": "[6.5.0, )"
+            },
+            "Swashbuckle.AspNetCore.SwaggerGen": {
+              "target": "Package",
+              "version": "[6.5.0, )"
+            },
+            "Swashbuckle.AspNetCore.SwaggerUI": {
+              "target": "Package",
+              "version": "[6.5.0, )"
             }
           },
           "imports": [
@@ -84,7 +100,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.202/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.201/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

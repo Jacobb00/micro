@@ -24,9 +24,9 @@ namespace ProductService.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<ProductListResponse>> GetProducts([FromQuery] ProductFilterParams filterParams)
+        public async Task<ActionResult<ProductListResponse>> GetProducts()
         {
-            var result = await _productRepository.GetProductsAsync(filterParams);
+            var result = await _productRepository.GetAllProductsAsync();
             return Ok(result);
         }
 

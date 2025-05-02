@@ -17,8 +17,10 @@ const Products: React.FC = () => {
         const response = await productService.getProducts(selectedCategory);
         setProducts(response.products);
         setLoading(false);
+        console.log('Products:', response.products);
       } catch (err: any) {
         setError('Failed to load products. Please try again later.');
+        console.error('Error fetching products:', err);
         setLoading(false);
       }
     };
@@ -26,6 +28,7 @@ const Products: React.FC = () => {
     const fetchCategories = async () => {
       try {
         const response = await productService.getCategories();
+        console.log('Categories:', response);
         setCategories(Array.isArray(response) ? response : []);
       } catch (err) {
         console.error('Failed to load categories', err);
@@ -34,10 +37,10 @@ const Products: React.FC = () => {
 
     fetchProducts();
     fetchCategories();
-  }, [selectedCategory]);
-
+  }, []);
   const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedCategory(e.target.value);
+
   };
 
   if (loading) return <div className="text-center my-5"><div className="spinner-border" role="status"></div></div>;

@@ -80,13 +80,66 @@ const userController = {
                     timestamp: new Date()
                 }
             );
-
+            /* 
+            
+                1- Login başarılı ise burada bir OTP code yaratılacak. Bu OTP code genelde 6 karakter ve sadece sayıdan oluşur.
+                2- kodu oluşturduktan sonra, user id, code, exp date, isUsed parametresi ile DB ye kayıt edilmeli. Bu OTP kullanıcıya bildirilmeli.
+                3- FE tarafında OTP kodun girilebileceği bir screen tasarlarsın. OTP kod buraya girilip OK dendiği anda kontroller yapılır. (isUsed = false, exDate < nowDate, OTP geçerli mi?)
+                4- OTP'yi yok et. isUsed = true.
+                5- JWT'yi yarat ve response olarak dön.
+                6- FE'de JWT'yi karşıla ve cookie ya da session üzerinde taşı. (JWT'yi localStorage'da tutma.)
+            */
             res.json({
                 message: 'Giriş başarılı',
-                token,
-                user: {
-                    id: user.id,
-                    email: user.email,
+                token,ffffffffffffffffffffffffffff2f33332ööööööööööööööööööööööööööööööööööööööööööööööööööööööööö
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                ****
                     name: user.name
                 }
             });

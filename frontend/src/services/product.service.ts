@@ -7,7 +7,7 @@ class ProductService {
   async getProducts(category?: string): Promise<ProductListResponse> {
     // Create URLSearchParams to ensure proper parameter formatting
     const params = new URLSearchParams();
-    
+  
     // Add default parameters
     params.append('page', '1');
     params.append('pageSize', '10');
