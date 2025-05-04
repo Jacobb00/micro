@@ -13,11 +13,19 @@ using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.Swagger;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using Swashbuckle.AspNetCore.SwaggerUI;
+using Microsoft.AspNetCore.Mvc;
+using System.Reflection;
+using System.IO;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        // Disable automatic model validation for query parameters
+        options.SuppressModelStateInvalidFilter = true;
+    });
 
 // Configure CORS
 builder.Services.AddCors(options =>
@@ -35,18 +43,41 @@ builder.Services.AddEndpointsApiExplorer();
 // Configure Swagger
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Product Service API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo 
+    { 
+        Title = "Product Service API", 
+        Version = "v1",
+        Description = "API for managing products and categories"
+    });
+    
+    // Add XML comments if they exist
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    if (File.Exists(xmlPath))
+    {
+        c.IncludeXmlComments(xmlPath);
+    }
+    
+    // Scan all controllers
+    c.EnableAnnotations();
+    c.TagActionsBy(api => new[] { api.GroupName ?? api.ActionDescriptor.RouteValues["controller"] });
 });
 
 // Add MongoDB services
 builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection("MongoDbSettings"));
 builder.Services.AddSingleton<IMongoDbContext, MongoDbContext>();
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 
 // Configure MassTransit with RabbitMQ
 builder.Services.AddMassTransit(config =>
 {
+    // Product Saga
     config.AddSagaStateMachine<ProductStateMachine, ProductSagaState>()
+        .InMemoryRepository();
+        
+    // Category Saga
+    config.AddSagaStateMachine<CategoryStateMachine, CategorySagaState>()
         .InMemoryRepository();
 
     config.UsingRabbitMq((context, cfg) =>
@@ -67,7 +98,13 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Product Service API v1"));
+    app.UseSwaggerUI(c => 
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Product Service API v1");
+        c.DocExpansion(DocExpansion.List);
+        c.DefaultModelsExpandDepth(-1); // Hide schema section
+        c.DisplayRequestDuration();
+    });
 }
 
 app.UseRouting();

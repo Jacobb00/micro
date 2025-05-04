@@ -4,7 +4,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace ProductService.Domain
 {
-    public class Product
+    public class Category
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
@@ -15,19 +15,6 @@ namespace ProductService.Domain
 
         [BsonElement("description")]
         public string Description { get; set; }
-
-        [BsonElement("price")]
-        public decimal Price { get; set; }
-
-        [BsonElement("stockQuantity")]
-        public int StockQuantity { get; set; }
-
-        [BsonElement("categoryId")]
-        [BsonRepresentation(BsonType.ObjectId)]
-        public string CategoryId { get; set; }
-
-        [BsonElement("category")]
-        public string Category { get; set; }
 
         [BsonElement("imageUrl")]
         public string ImageUrl { get; set; }

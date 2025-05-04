@@ -9,26 +9,15 @@ using System.Linq;
 
 namespace ProductService.Services
 {
-    public interface IProductRepository
-    {
-        Task<Product> GetByIdAsync(string id);
-        Task<ProductListResponse> GetProductsAsync(ProductFilterParams filterParams);
-        Task<ProductListResponse> GetAllProductsAsync();
-        Task<string> CreateAsync(Product product);
-        Task<bool> UpdateAsync(string id, Product product);
-        Task<bool> UpdateStockAsync(string id, int quantity, bool isIncrement);
-        Task<bool> DeleteAsync(string id);
-        Task<bool> ProductExistsAsync(string id);
-        Task<List<string>> GetCategoriesAsync();
-    }
-
     public class ProductRepository : IProductRepository
     {
         private readonly IMongoDbContext _context;
+        private readonly ICategoryRepository _categoryRepository;
 
-        public ProductRepository(IMongoDbContext context)
+        public ProductRepository(IMongoDbContext context, ICategoryRepository categoryRepository)
         {
             _context = context;
+            _categoryRepository = categoryRepository;
         }
 
         public async Task<Product> GetByIdAsync(string id)
@@ -36,81 +25,56 @@ namespace ProductService.Services
             return await _context.Products.Find(p => p.Id == id && p.IsActive).FirstOrDefaultAsync();
         }
 
-        public async Task<ProductListResponse> GetProductsAsync(ProductFilterParams filterParams)
-        {
-            var filterBuilder = Builders<Product>.Filter;
-            var filter = filterBuilder.Eq(p => p.IsActive, true);
-
-            // Apply search filter
-            if (!string.IsNullOrEmpty(filterParams.SearchTerm))
-            {
-                var searchFilter = filterBuilder.Text(filterParams.SearchTerm);
-                filter = filterBuilder.And(filter, searchFilter);
-            }
-
-            // Apply category filter
-            if (!string.IsNullOrEmpty(filterParams.Category))
-            {
-                var categoryFilter = filterBuilder.Eq(p => p.Category, filterParams.Category);
-                filter = filterBuilder.And(filter, categoryFilter);
-            }
-
-            // Apply price filters
-            if (filterParams.MinPrice.HasValue)
-            {
-                var minPriceFilter = filterBuilder.Gte(p => p.Price, filterParams.MinPrice.Value);
-                filter = filterBuilder.And(filter, minPriceFilter);
-            }
-
-            if (filterParams.MaxPrice.HasValue)
-            {
-                var maxPriceFilter = filterBuilder.Lte(p => p.Price, filterParams.MaxPrice.Value);
-                filter = filterBuilder.And(filter, maxPriceFilter);
-            }
-
-            // Apply stock filter
-            if (filterParams.InStock.HasValue)
-            {
-                var stockFilter = filterParams.InStock.Value
-                    ? filterBuilder.Gt(p => p.StockQuantity, 0)
-                    : filterBuilder.Lte(p => p.StockQuantity, 0);
-                filter = filterBuilder.And(filter, stockFilter);
-            }
-
-            // Get total count
-            var totalCount = await _context.Products.CountDocumentsAsync(filter);
-
-            // Apply sorting
-            var sortDefinition = GetSortDefinition(filterParams.SortBy, filterParams.SortDesc);
-
-            // Apply pagination
-            var skip = (filterParams.Page - 1) * filterParams.PageSize;
-            var products = await _context.Products
-                .Find(filter)
-                .Sort(sortDefinition)
-                .Skip(skip)
-                .Limit(filterParams.PageSize)
-                .ToListAsync();
-
-            return new ProductListResponse
-            {
-                Products = products.Select(p => MapToDto(p)).ToList(),
-                TotalCount = (int)totalCount,
-                Page = filterParams.Page,
-                PageSize = filterParams.PageSize
-            };
-        }
-
         public async Task<ProductListResponse> GetAllProductsAsync()
         {
             var filter = Builders<Product>.Filter.Eq(p => p.IsActive, true);
+            var sortBuilder = Builders<Product>.Sort;
+            var sortDefinition = sortBuilder.Ascending(p => p.Name);
+            
+            var products = await _context.Products
+                .Find(filter)
+                .Sort(sortDefinition)
+                .ToListAsync();
+
+            // Get category details for all products
+            var productDtos = new List<ProductDto>();
+            foreach (var product in products)
+            {
+                var productDto = await MapToDtoWithCategoryAsync(product);
+                productDtos.Add(productDto);
+            }
+
+            return new ProductListResponse
+            {
+                Products = productDtos,
+                TotalCount = products.Count,
+                Page = 1,
+                PageSize = products.Count
+            };
+        }
+
+        public async Task<ProductListResponse> GetProductsByCategoryIdAsync(string categoryId)
+        {
+            var filter = Builders<Product>.Filter.And(
+                Builders<Product>.Filter.Eq(p => p.IsActive, true),
+                Builders<Product>.Filter.Eq(p => p.CategoryId, categoryId)
+            );
+
             var products = await _context.Products
                 .Find(filter)
                 .ToListAsync();
 
+            // Get category details for all products
+            var productDtos = new List<ProductDto>();
+            foreach (var product in products)
+            {
+                var productDto = await MapToDtoWithCategoryAsync(product);
+                productDtos.Add(productDto);
+            }
+
             return new ProductListResponse
             {
-                Products = products.Select(p => MapToDto(p)).ToList(),
+                Products = productDtos,
                 TotalCount = products.Count,
                 Page = 1,
                 PageSize = products.Count
@@ -139,6 +103,7 @@ namespace ProductService.Services
                 .Set(p => p.Description, updatedProduct.Description)
                 .Set(p => p.Price, updatedProduct.Price)
                 .Set(p => p.StockQuantity, updatedProduct.StockQuantity)
+                .Set(p => p.CategoryId, updatedProduct.CategoryId)
                 .Set(p => p.Category, updatedProduct.Category)
                 .Set(p => p.ImageUrl, updatedProduct.ImageUrl)
                 .Set(p => p.UpdatedAt, DateTime.UtcNow);
@@ -229,12 +194,35 @@ namespace ProductService.Services
                 Description = product.Description,
                 Price = product.Price,
                 StockQuantity = product.StockQuantity,
+                CategoryId = product.CategoryId,
                 Category = product.Category,
                 ImageUrl = product.ImageUrl,
                 CreatedAt = product.CreatedAt,
                 UpdatedAt = product.UpdatedAt,
                 IsActive = product.IsActive
             };
+        }
+
+        private async Task<ProductDto> MapToDtoWithCategoryAsync(Product product)
+        {
+            var dto = MapToDto(product);
+            
+            if (!string.IsNullOrEmpty(product.CategoryId))
+            {
+                var category = await _categoryRepository.GetByIdAsync(product.CategoryId);
+                if (category != null)
+                {
+                    dto.CategoryDetails = new CategoryDto
+                    {
+                        Id = category.Id,
+                        Name = category.Name,
+                        Description = category.Description,
+                        ImageUrl = category.ImageUrl
+                    };
+                }
+            }
+            
+            return dto;
         }
     }
 } 

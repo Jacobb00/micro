@@ -15,18 +15,33 @@ namespace ProductService.Controllers
     public class ProductsController : ControllerBase
     {
         private readonly IProductRepository _productRepository;
+        private readonly ICategoryRepository _categoryRepository;
         private readonly IPublishEndpoint _publishEndpoint;
 
-        public ProductsController(IProductRepository productRepository, IPublishEndpoint publishEndpoint)
+        public ProductsController(IProductRepository productRepository, ICategoryRepository categoryRepository, IPublishEndpoint publishEndpoint)
         {
             _productRepository = productRepository;
+            _categoryRepository = categoryRepository;
             _publishEndpoint = publishEndpoint;
         }
 
+        /// <summary>
+        /// Get all products without any filtering
+        /// </summary>
         [HttpGet]
         public async Task<ActionResult<ProductListResponse>> GetProducts()
         {
             var result = await _productRepository.GetAllProductsAsync();
+            return Ok(result);
+        }
+
+        [HttpGet("category/{categoryId}")]
+        public async Task<ActionResult<ProductListResponse>> GetProductsByCategory(string categoryId)
+        {
+            if (!await _categoryRepository.CategoryExistsAsync(categoryId))
+                return NotFound("Category not found");
+
+            var result = await _productRepository.GetProductsByCategoryIdAsync(categoryId);
             return Ok(result);
         }
 
@@ -37,19 +52,37 @@ namespace ProductService.Controllers
             if (product == null)
                 return NotFound();
 
-            return Ok(new ProductDto
+            var productDto = new ProductDto
             {
                 Id = product.Id,
                 Name = product.Name,
                 Description = product.Description,
                 Price = product.Price,
                 StockQuantity = product.StockQuantity,
+                CategoryId = product.CategoryId,
                 Category = product.Category,
                 ImageUrl = product.ImageUrl,
                 CreatedAt = product.CreatedAt,
                 UpdatedAt = product.UpdatedAt,
                 IsActive = product.IsActive
-            });
+            };
+
+            if (!string.IsNullOrEmpty(product.CategoryId))
+            {
+                var category = await _categoryRepository.GetByIdAsync(product.CategoryId);
+                if (category != null)
+                {
+                    productDto.CategoryDetails = new CategoryDto
+                    {
+                        Id = category.Id,
+                        Name = category.Name,
+                        Description = category.Description,
+                        ImageUrl = category.ImageUrl
+                    };
+                }
+            }
+
+            return Ok(productDto);
         }
 
         [HttpGet("categories")]
@@ -62,6 +95,13 @@ namespace ProductService.Controllers
         [HttpPost]
         public async Task<ActionResult<string>> CreateProduct([FromBody] CreateProductDto productDto)
         {
+            // Validate that category exists
+            if (!string.IsNullOrEmpty(productDto.CategoryId))
+            {
+                if (!await _categoryRepository.CategoryExistsAsync(productDto.CategoryId))
+                    return BadRequest("Specified category does not exist");
+            }
+
             // Create correlation ID for the SAGA
             var correlationId = Guid.NewGuid();
 
@@ -72,6 +112,7 @@ namespace ProductService.Controllers
                 Description = productDto.Description,
                 Price = productDto.Price,
                 StockQuantity = productDto.StockQuantity,
+                CategoryId = productDto.CategoryId,
                 Category = productDto.Category,
                 ImageUrl = productDto.ImageUrl,
                 IsActive = true
@@ -112,6 +153,13 @@ namespace ProductService.Controllers
             if (existingProduct == null)
                 return NotFound();
 
+            // Validate that category exists if specified
+            if (!string.IsNullOrEmpty(productDto.CategoryId))
+            {
+                if (!await _categoryRepository.CategoryExistsAsync(productDto.CategoryId))
+                    return BadRequest("Specified category does not exist");
+            }
+
             // Create correlation ID for the SAGA
             var correlationId = Guid.NewGuid();
 
@@ -121,12 +169,12 @@ namespace ProductService.Controllers
             
             if (productDto.Description != null)
                 existingProduct.Description = productDto.Description;
-            
-            if (productDto.Price.HasValue)
-                existingProduct.Price = productDto.Price.Value;
-            
-            if (productDto.StockQuantity.HasValue)
-                existingProduct.StockQuantity = productDto.StockQuantity.Value;
+            if (productDto.Price != 0)
+                existingProduct.Price = productDto.Price;
+            if (productDto.StockQuantity != 0)
+                existingProduct.StockQuantity = (int)productDto.StockQuantity;
+            if (productDto.CategoryId != null)
+                existingProduct.CategoryId = productDto.CategoryId;
             
             if (productDto.Category != null)
                 existingProduct.Category = productDto.Category;
