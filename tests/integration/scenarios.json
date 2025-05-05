@@ -1,0 +1,325 @@
+{
+    "user-product": {
+        "description": "Kullanıcı ve Ürün Servisleri Entegrasyon Testleri",
+        "scenarios": [
+            {
+                "group": "Kullanıcı Kaydı ve Ürün Yönetimi",
+                "tests": [
+                    {
+                        "name": "Yeni kullanıcı kaydı yapılabilmeli",
+                        "endpoint": "POST /api/auth/register",
+                        "expectedStatus": 201,
+                        "checkPoints": ["token kontrolü", "kullanıcı ID kontrolü"]
+                    },
+                    {
+                        "name": "Kayıtlı kullanıcı ürün ekleyebilmeli",
+                        "endpoint": "POST /api/products",
+                        "requiresAuth": true,
+                        "expectedStatus": 201,
+                        "checkPoints": ["ürün ID kontrolü", "ürün sahibi kontrolü"]
+                    },
+                    {
+                        "name": "Yetkisiz kullanıcı ürün ekleyememeli",
+                        "endpoint": "POST /api/products",
+                        "requiresAuth": false,
+                        "expectedStatus": 401
+                    }
+                ]
+            },
+            {
+                "group": "Kullanıcıya Özel Ürün Listeleme",
+                "tests": [
+                    {
+                        "name": "Kullanıcı kendi ürünlerini listeleyebilmeli",
+                        "endpoint": "GET /api/products/user/:userId",
+                        "requiresAuth": true,
+                        "expectedStatus": 200,
+                        "checkPoints": ["ürün listesi kontrolü", "ürün sahibi doğrulama"]
+                    },
+                    {
+                        "name": "Tüm ürünler listelenebilmeli",
+                        "endpoint": "GET /api/products",
+                        "expectedStatus": 200,
+                        "checkPoints": ["ürün listesi kontrolü"]
+                    }
+                ]
+            }
+        ]
+    },
+    "user-payment": {
+        "description": "Kullanıcı ve Ödeme Servisleri Entegrasyon Testleri",
+        "scenarios": [
+            {
+                "group": "Kullanıcı Kaydı ve Ödeme İşlemleri",
+                "tests": [
+                    {
+                        "name": "Yeni kullanıcı kaydı yapılabilmeli",
+                        "endpoint": "POST /api/auth/register",
+                        "expectedStatus": 201,
+                        "checkPoints": ["token kontrolü", "kullanıcı ID kontrolü"]
+                    },
+                    {
+                        "name": "Kullanıcı cüzdan bakiyesini görüntüleyebilmeli",
+                        "endpoint": "GET /api/wallet/:userId/balance",
+                        "requiresAuth": true,
+                        "expectedStatus": 200,
+                        "checkPoints": ["bakiye kontrolü"]
+                    },
+                    {
+                        "name": "Kullanıcı para yatırabilmeli",
+                        "endpoint": "POST /api/wallet/deposit",
+                        "requiresAuth": true,
+                        "expectedStatus": 200,
+                        "checkPoints": ["bakiye güncelleme kontrolü"]
+                    }
+                ]
+            },
+            {
+                "group": "Ödeme İşlemleri",
+                "tests": [
+                    {
+                        "name": "Yeterli bakiye ile ödeme yapılabilmeli",
+                        "endpoint": "POST /api/payments/process",
+                        "requiresAuth": true,
+                        "expectedStatus": 201,
+                        "checkPoints": ["ödeme durumu kontrolü", "tutar kontrolü"]
+                    },
+                    {
+                        "name": "Yetersiz bakiye ile ödeme yapılamamalı",
+                        "endpoint": "POST /api/payments/process",
+                        "requiresAuth": true,
+                        "expectedStatus": 400,
+                        "checkPoints": ["hata mesajı kontrolü"]
+                    },
+                    {
+                        "name": "Kullanıcı ödeme geçmişini görüntüleyebilmeli",
+                        "endpoint": "GET /api/payments/user/:userId",
+                        "requiresAuth": true,
+                        "expectedStatus": 200,
+                        "checkPoints": ["ödeme listesi kontrolü", "ödeme detayları kontrolü"]
+                    }
+                ]
+            },
+            {
+                "group": "Yetkilendirme Kontrolleri",
+                "tests": [
+                    {
+                        "name": "Token olmadan ödeme yapılamamalı",
+                        "endpoint": "POST /api/payments/process",
+                        "requiresAuth": false,
+                        "expectedStatus": 401
+                    },
+                    {
+                        "name": "Token olmadan bakiye görüntülenememeli",
+                        "endpoint": "GET /api/wallet/:userId/balance",
+                        "requiresAuth": false,
+                        "expectedStatus": 401
+                    },
+                    {
+                        "name": "Token olmadan para yatırılamamalı",
+                        "endpoint": "POST /api/wallet/deposit",
+                        "requiresAuth": false,
+                        "expectedStatus": 401
+                    }
+                ]
+            }
+        ]
+    },
+     "end-to-end": {
+        "description": "Uçtan Uca E-Ticaret Senaryoları",
+        "scenarios": [
+            {
+                "group": "Ürün Satın Alma Süreci",
+                "tests": [
+                    {
+                        "name": "Kullanıcı kaydı, giriş ve ürün satın alma süreci",
+                        "steps": [
+                            {
+                                "service": "user",
+                                "name": "Kullanıcı kaydı",
+                                "endpoint": "POST /api/auth/register",
+                                "data": {
+                                    "email": "test@example.com",
+                                    "password": "Test123!",
+                                    "name": "Test User"
+                                },
+                                "expectedStatus": 201,
+                                "saveResponse": {
+                                    "token": "authToken",
+                                    "userId": "user.id"
+                                }
+                            },
+                            {
+                                "service": "user",
+                                "name": "Kullanıcı girişi",
+                                "endpoint": "POST /api/auth/login",
+                                "data": {
+                                    "email": "test@example.com",
+                                    "password": "Test123!"
+                                },
+                                "expectedStatus": 200,
+                                "saveResponse": {
+                                    "token": "authToken"
+                                }
+                            },
+                            {
+                                "service": "wallet",
+                                "name": "Cüzdana para yükleme",
+                                "endpoint": "POST /api/wallet/deposit",
+                                "requiresAuth": true,
+                                "data": {
+                                    "amount": 2000
+                                },
+                                "expectedStatus": 200,
+                                "checkPoints": ["balance kontrolü"]
+                            },
+                            {
+                                "service": "product",
+                                "name": "Ürünleri listeleme",
+                                "endpoint": "GET /api/products",
+                                "expectedStatus": 200,
+                                "saveResponse": {
+                                    "firstProduct": "products[0].id"
+                                }
+                            },
+                            {
+                                "service": "cart",
+                                "name": "Sepete ürün ekleme",
+                                "endpoint": "POST /api/cart/items",
+                                "requiresAuth": true,
+                                "data": {
+                                    "productId": "$firstProduct",
+                                    "quantity": 10
+                                },
+                                "expectedStatus": 201
+                            },
+                            {
+                                "service": "cart",
+                                "name": "Sepeti görüntüleme",
+                                "endpoint": "GET /api/cart",
+                                "requiresAuth": true,
+                                "expectedStatus": 200,
+                                "checkPoints": ["ürün sayısı kontrolü", "toplam tutar kontrolü"]
+                            },
+                            {
+                                "service": "order",
+                                "name": "Siparişi oluşturma",
+                                "endpoint": "POST /api/orders",
+                                "requiresAuth": true,
+                                "data": {
+                                    "cartId": "$cartId"
+                                },
+                                "expectedStatus": 201,
+                                "saveResponse": {
+                                    "orderId": "order.id"
+                                }
+                            },
+                            {
+                                "service": "payment",
+                                "name": "Sipariş ödemesi",
+                                "endpoint": "POST /api/payments/process",
+                                "requiresAuth": true,
+                                "data": {
+                                    "orderId": "$orderId",
+                                    "amount": "$orderAmount"
+                                },
+                                "expectedStatus": 201
+                            },
+                            {
+                                "service": "order",
+                                "name": "Sipariş durumu kontrolü",
+                                "endpoint": "GET /api/orders/$orderId",
+                                "requiresAuth": true,
+                                "expectedStatus": 200,
+                                "checkPoints": [
+                                    "sipariş durumu 'ödendi' olmalı",
+                                    "ürün miktarı kontrolü",
+                                    "toplam tutar kontrolü"
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "group": "Stok Güncellemesi ve İptal Senaryoları",
+                "tests": [
+                    {
+                        "name": "Stok yetersizliği durumunda sipariş oluşturulamamalı",
+                        "steps": [
+                            {
+                                "service": "product",
+                                "name": "Ürün stok kontrolü",
+                                "endpoint": "GET /api/products/$firstProduct",
+                                "expectedStatus": 200,
+                                "saveResponse": {
+                                    "currentStock": "product.stock"
+                                }
+                            },
+                            {
+                                "service": "cart",
+                                "name": "Stoktan fazla ürün ekleme denemesi",
+                                "endpoint": "POST /api/cart/items",
+                                "requiresAuth": true,
+                                "data": {
+                                    "productId": "$firstProduct",
+                                    "quantity": "$currentStock + 1"
+                                },
+                                "expectedStatus": 400,
+                                "checkPoints": ["yetersiz stok hatası kontrolü"]
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Sipariş iptal süreci",
+                        "steps": [
+                            {
+                                "service": "order",
+                                "name": "Siparişi iptal etme",
+                                "endpoint": "PUT /api/orders/$orderId/cancel",
+                                "requiresAuth": true,
+                                "expectedStatus": 200,
+                                "checkPoints": ["sipariş durumu 'iptal edildi' olmalı"]
+                            },
+                            {
+                                "service": "wallet",
+                                "name": "İade sonrası bakiye kontrolü",
+                                "endpoint": "GET /api/wallet/balance",
+                                "requiresAuth": true,
+                                "expectedStatus": 200,
+                                "checkPoints": ["iade tutarı bakiyeye eklenmeli"]
+                            },
+                            {
+                                "service": "product",
+                                "name": "İptal sonrası stok kontrolü",
+                                "endpoint": "GET /api/products/$firstProduct",
+                                "expectedStatus": 200,
+                                "checkPoints": ["stok miktarı güncellenmiş olmalı"]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    "testData": {
+        "user": {
+            "email": "test@example.com",
+            "password": "Test123!",
+            "name": "Test User"
+        },
+        "product": {
+            "name": "Test Ürün",
+            "description": "Test ürün açıklaması",
+            "price": 99.99,
+            "stock": 100
+        },
+        "order": {
+            "id": "order123",
+            "amount": 500
+        },
+        "wallet": {
+            "initialBalance": 1000
+        }
+    }
+} 

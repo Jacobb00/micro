@@ -27,43 +27,48 @@ const Navbar: React.FC = () => {
         </button>
         
         <div className="collapse navbar-collapse" id="navbarNav">
-          {isAuthenticated ? (
-            <>
-              <ul className="navbar-nav me-auto">
-                <li className="nav-item">
-                  <Link className="nav-link" to="/products">Products</Link>
-                </li>
+          <ul className="navbar-nav me-auto">
+            <li className="nav-item">
+              <Link className="nav-link" to="/products">Products</Link>
+            </li>
+            {isAuthenticated && (
+              <>
                 <li className="nav-item">
                   <Link className="nav-link" to="/cart">Sepetim</Link>
                 </li>
                 <li className="nav-item">
                   <Link className="nav-link" to="/orders">Siparişlerim</Link>
                 </li>
-                {/* Add more nav items here as needed */}
-              </ul>
-              
-              <div className="navbar-nav ms-auto">
-                <span className="nav-item nav-link text-light">
-                  Welcome, {currentUser?.name || 'User'}
-                </span>
-                <button 
-                  className="btn btn-outline-light ms-2" 
-                  onClick={handleLogout}
-                >
-                  Logout
-                </button>
-              </div>
-            </>
-          ) : (
-            <ul className="navbar-nav ms-auto">
-              <li className="nav-item">
-                <Link className="nav-link" to="/login">Login</Link>
-              </li>
-              <li className="nav-item">
-                <Link className="nav-link" to="/register">Register</Link>
-              </li>
-            </ul>
-          )}
+              </>
+            )}
+          </ul>
+          
+          <div className="navbar-nav ms-auto">
+            {isAuthenticated ? (
+              <>
+                <div className="d-flex align-items-center">
+                  <Link to="/profile" className="nav-link text-light me-3">
+                    Welcome, {currentUser?.name || 'Kullanıcı'}
+                  </Link>
+                  <button 
+                    className="btn btn-outline-light" 
+                    onClick={handleLogout}
+                  >
+                    Logout
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <li className="nav-item">
+                  <Link className="nav-link" to="/login">Login</Link>
+                </li>
+                <li className="nav-item">
+                  <Link className="nav-link" to="/register">Register</Link>
+                </li>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </nav>

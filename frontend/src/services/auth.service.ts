@@ -1,4 +1,5 @@
 import axios from 'axios';
+import API from './api';
 
 const API_URL = '/api/auth';
 
@@ -11,6 +12,11 @@ export interface RegisterData {
   name: string;
   email: string;
   password: string;
+}
+
+export interface ProfileUpdateData {
+  name?: string;
+  email?: string;
 }
 
 export interface AuthResponse {
@@ -34,6 +40,18 @@ class AuthService {
 
   async register(data: RegisterData): Promise<void> {
     await axios.post(`${API_URL}/register`, data);
+  }
+
+  async updateProfile(data: ProfileUpdateData): Promise<any> {
+    // API interceptor ile token otomatik olarak eklenecek
+    const response = await API.put(`/auth/profile`, data);
+    
+    // Güncellenen kullanıcı bilgilerini localStorage'a kaydet
+    if (response.data && response.data.user) {
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+    }
+    
+    return response.data;
   }
 
   logout(): void {
