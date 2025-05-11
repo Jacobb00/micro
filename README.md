@@ -75,9 +75,6 @@ npm test
 - RabbitMQ
 - JWT Authentication
 
-## Lisans
-
-Bu proje MIT lisansı altında lisanslanmıştır.
 
 MYSQL BAĞLANTISI
 MySQL docker exec -it micro-mysql-1 mysql -u payment_user -ppayment_password payment_db
