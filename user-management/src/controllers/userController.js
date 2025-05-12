@@ -91,55 +91,10 @@ const userController = {
             */
             res.json({
                 message: 'Giriş başarılı',
-                token,ffffffffffffffffffffffffffff2f33332ööööööööööööööööööööööööööööööööööööööööööööööööööööööööö
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                ****
+                token,
+                user: {
+                    id: user.id,
+                    email: user.email,
                     name: user.name
                 }
             });
