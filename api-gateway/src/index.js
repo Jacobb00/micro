@@ -3,6 +3,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
+const { register, metricsMiddleware } = require('./metrics');
 
 // Servis versiyonu
 const VERSION = '2.2.5';
@@ -14,6 +15,7 @@ const PORT = process.env.PORT || 4000;
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
+app.use(metricsMiddleware);
 
 // Kimlik doğrulama fonksiyonu
 const authenticate = (req, res, next) => {
@@ -30,6 +32,16 @@ const authenticate = (req, res, next) => {
     return res.status(401).json({ message: 'Kimlik doğrulama hatası: Geçersiz token' });
   }
 };
+
+// Metrics endpoint
+app.get('/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', register.contentType);
+    res.end(await register.metrics());
+  } catch (err) {
+    res.status(500).end(err);
+  }
+});
 
 // Servis proxy endpoint'leri
 // User service

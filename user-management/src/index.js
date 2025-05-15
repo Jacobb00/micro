@@ -7,11 +7,32 @@ const rabbitmq = require('./config/rabbitmq');
 const User = require('./models/User');
 const userController = require('./controllers/userController');
 const auth = require('./middleware/auth');
+const { register, metricsMiddleware } = require('./config/metrics');
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(metricsMiddleware);
+
+// Metrics endpoint
+app.get('/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', register.contentType);
+    res.end(await register.metrics());
+  } catch (err) {
+    res.status(500).end(err);
+  }
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'UP', 
+    service: 'user-service',
+    database: 'connected'
+  });
+});
 
 // Routes
 app.post('/api/auth/register', userController.register);
