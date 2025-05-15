@@ -2,11 +2,17 @@ import os
 import json
 import logging
 import time
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 import pika
 import jwt
 import requests
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from metrics import (
+    RequestLatencyMiddleware, observe_payment_operation, 
+    time_database_operation, update_processor_status,
+    track_success_rate
+)
 from database import init_db, save_order, get_orders_by_user, get_order_details
 
 # Configure logging
@@ -18,6 +24,14 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
+
+# Add metrics middleware
+app.wsgi_app = RequestLatencyMiddleware(app.wsgi_app)
+
+# Metrics endpoint
+@app.route('/metrics', methods=['GET'])
+def metrics():
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 # Get environment variables
 JWT_SECRET = os.environ.get('JWT_SECRET', 'secret-key')
@@ -36,9 +50,11 @@ def get_rabbitmq_connection():
                 blocked_connection_timeout=300
             )
         )
+        update_processor_status('rabbitmq', True)
         return connection
     except Exception as e:
         logger.error(f"Failed to connect to RabbitMQ: {e}")
+        update_processor_status('rabbitmq', False)
         return None
 
 def publish_payment_event(event_type, data):
@@ -94,21 +110,27 @@ def process_payment(payment_data):
     
     # Simple test card validation
     if not card_number.isdigit() or len(card_number) != 16:
+        observe_payment_operation('validate', 'failure')
         return False, "Invalid card number"
     
     # Test cards
     if card_number == '4111111111111111':
+        observe_payment_operation('process', 'success', payment_data.get('amount', 0))
         return True, "Payment successful"
     elif card_number == '4242424242424242':
+        observe_payment_operation('process', 'success', payment_data.get('amount', 0))
         return True, "Payment successful"
     elif card_number == '4000000000000002':
+        observe_payment_operation('process', 'failure')
         return False, "Card declined"
         
     # Process based on last digit for testing
     last_digit = int(card_number[-1])
     if last_digit % 2 == 0:
+        observe_payment_operation('process', 'success', payment_data.get('amount', 0))
         return True, "Payment successful"
     else:
+        observe_payment_operation('process', 'failure')
         return False, "Card declined"
 
 # Check product stock availability
@@ -116,16 +138,32 @@ def check_stock(product_id, quantity):
     try:
         response = requests.get(f"{PRODUCT_SERVICE_URL}/{product_id}")
         if response.status_code != 200:
+            observe_payment_operation('stock_check', 'failure')
             return False, "Product not found"
         
         product = response.json()
         if product['stockQuantity'] < quantity:
+            observe_payment_operation('stock_check', 'failure')
             return False, f"Not enough stock. Available: {product['stockQuantity']}"
         
+        observe_payment_operation('stock_check', 'success')
         return True, product
     except Exception as e:
         logger.error(f"Error checking product stock: {e}")
+        observe_payment_operation('stock_check', 'error')
         return False, "Error checking product stock"
+
+@time_database_operation('save_order')
+def db_save_order(order_data):
+    return save_order(order_data)
+
+@time_database_operation('get_orders')
+def db_get_orders_by_user(user_id):
+    return get_orders_by_user(user_id)
+
+@time_database_operation('get_order_details')
+def db_get_order_details(order_id):
+    return get_order_details(order_id)
 
 async def get_product_prices(cart_items):
     """Get product prices to store in the order database"""
@@ -199,7 +237,7 @@ def process_payment_request():
         }
         
         # Save order to MySQL database
-        db_save_success = save_order(order_data)
+        db_save_success = db_save_order(order_data)
         if not db_save_success:
             logger.warning("Failed to save order to database, but payment was successful")
         
@@ -227,7 +265,7 @@ def get_user_orders():
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
     
-    orders = get_orders_by_user(user['id'])
+    orders = db_get_orders_by_user(user['id'])
     
     # Convert SQLAlchemy objects to dictionaries
     orders_data = []
@@ -251,7 +289,7 @@ def get_order(order_id):
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
     
-    order_details = get_order_details(order_id)
+    order_details = db_get_order_details(order_id)
     
     if not order_details:
         return jsonify({"error": "Order not found"}), 404

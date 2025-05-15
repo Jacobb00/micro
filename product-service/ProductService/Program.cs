@@ -13,6 +13,7 @@ using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.Swagger;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using Swashbuckle.AspNetCore.SwaggerUI;
+using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -69,6 +70,16 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Product Service API v1"));
 }
+
+// Add Prometheus metrics
+app.UseMetricServer();
+app.UseHttpMetrics();
+
+// Add our custom metrics middleware
+app.UseProductMetrics();
+
+// Add health checks
+app.MapGet("/health", () => Results.Ok(new { Status = "UP", Service = "Product Service" }));
 
 app.UseRouting();
 app.UseCors();

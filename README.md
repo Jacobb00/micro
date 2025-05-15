@@ -45,6 +45,24 @@ Proje aşağıdaki mikroservislerden oluşmaktadır:
 - MySQL (Port: 3306)
 - RabbitMQ (Port: 5672, Yönetim Paneli: 15672)
 
+## Monitoring
+
+Proje, Prometheus ve Grafana kullanarak kapsamlı bir izleme sistemi içerir:
+
+- **Prometheus (Port: 9090)**: Metrikleri toplar ve saklar.
+- **Grafana (Port: 3001)**: Görselleştirme ve dashboard'lar sağlar.
+  - Kullanıcı adı: admin
+  - Şifre: admin
+- **Node Exporter (Port: 9100)**: Sistem metriklerini toplar.
+
+Temel metrikler:
+- HTTP istek sayısı ve süresi
+- Kimlik doğrulama istekleri
+- Veritabanı sorgu süreleri
+- Sistem metrikleri (CPU, bellek, disk, ağ)
+
+Grafana dashboard'una http://localhost:3001 adresinden erişebilirsiniz.
+
 ## Kurulum
 
 1. Docker ve Docker Compose'un yüklü olduğundan emin olun

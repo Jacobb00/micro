@@ -9,6 +9,7 @@ const { connectRabbitMQ } = require('./config/rabbitmq');
 const { setupConsumers } = require('./services/messageConsumer');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 const logger = require('./config/logger');
+const { register, metricsMiddleware } = require('./config/metrics');
 
 // Import routes
 const orderRoutes = require('./routes/orderRoutes');
@@ -20,6 +21,18 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
+app.use(metricsMiddleware);
+
+// Metrics endpoint
+app.get('/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', register.contentType);
+    res.end(await register.metrics());
+  } catch (err) {
+    logger.error(`Error generating metrics: ${err.message}`);
+    res.status(500).end(err);
+  }
+});
 
 // API Routes
 app.use('/api/orders', orderRoutes);
