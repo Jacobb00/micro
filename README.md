@@ -37,7 +37,7 @@ docker exec -it micro-mongodb-1 mongosh
 show dbs
 
 # Admin veritabanına geçiş
-use admin
+use admin,cart_service_db,ProductsDb order-tracking
 
 # Koleksiyonları listeleme
 show collections
@@ -92,7 +92,7 @@ SELECT * FROM orders ORDER BY created_at DESC LIMIT 10;
 SELECT * FROM orders WHERE status = 'completed';
 
 # Belirli bir kullanıcının siparişlerini görüntüleme
-SELECT * FROM orders WHERE user_id = '3f94c78a-f80c-4113-b04e-d141830dfb85';
+SELECT * FROM orders WHERE user_id = 'id girilecek';
 ```
 
 ## Environment Değişkenleri
@@ -193,32 +193,5 @@ SELECT * FROM orders WHERE user_id = '3f94c78a-f80c-4113-b04e-d141830dfb85';
 - Username: payment_user
 - Password: payment_password
 
-## Güvenlik Notları
-
-1. Production ortamında JWT_SECRET değerini değiştirin
-2. Veritabanı şifrelerini güçlü şifrelerle değiştirin
-3. RabbitMQ kullanıcı adı ve şifresini değiştirin
-4. Grafana admin şifresini değiştirin
-
-## Sorun Giderme
-
-1. Servisler başlamazsa:
-   - Docker loglarını kontrol edin: `docker logs <container-name>`
-   - Environment değişkenlerinin doğru ayarlandığından emin olun
-   - Port çakışmalarını kontrol edin
-
-2. Veritabanı bağlantı sorunları:
-   - Veritabanı servislerinin çalıştığından emin olun
-   - Bağlantı bilgilerini kontrol edin
-   - Firewall ayarlarını kontrol edin
-
-3. Monitoring sorunları:
-   - Prometheus ve Grafana servislerinin çalıştığından emin olun
-   - Metrik endpoint'lerinin erişilebilir olduğunu kontrol edin
-   - Grafana datasource ayarlarını kontrol edin
-
-## Lisans
-
-MIT
 
 
