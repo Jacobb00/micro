@@ -25,6 +25,7 @@ Bu proje, e-ticaret platformu için mikroservis mimarisi kullanılarak geliştir
 - **MongoDB**: Ürün ve sipariş servisleri için
 - **MySQL**: Ödeme servisi için
 - **RabbitMQ**: Mesaj kuyruğu
+- **Redis**: Cache ve session yönetimi
 
 ## Veritabanı Bağlantıları ve Komutlar
 
@@ -95,6 +96,56 @@ SELECT * FROM orders WHERE status = 'completed';
 SELECT * FROM orders WHERE user_id = 'id girilecek';
 ```
 
+### Redis Bağlantısı
+```bash
+# Redis'e bağlanma
+docker exec -it micro-redis-1 redis-cli
+
+# Redis bilgilerini görüntüleme
+info
+
+# Tüm anahtarları listeleme
+keys *
+
+# Belirli pattern'deki anahtarları listeleme
+keys user:*
+keys product:*
+keys cart:*
+keys payment:*
+
+# Anahtar değerini görüntüleme
+get user:session:123
+get product:price:456
+
+# Cache istatistiklerini görüntüleme
+info stats
+
+# Memory kullanımını görüntüleme
+info memory
+
+# Veritabanı boyutunu görüntüleme
+dbsize
+
+# Belirli TTL'e sahip anahtarları görüntüleme
+ttl user:session:123
+
+# Cache'i temizleme (dikkatli kullanın!)
+flushdb
+
+# Örnek cache sorguları:
+# Kullanıcı session'larını görüntüleme
+keys user:session:*
+
+# Product cache'lerini görüntüleme
+keys product:*
+
+# Cart cache'lerini görüntüleme
+keys cart:*
+
+# Payment session'larını görüntüleme
+keys payment:session:*
+```
+
 ## Environment Değişkenleri
 
 ### User Service
@@ -106,6 +157,8 @@ SELECT * FROM orders WHERE user_id = 'id girilecek';
 - `DB_PASSWORD`: postgres
 - `JWT_SECRET`: V58XuK9zPq4sDwjEbCfa7hJLgMrTn2YH
 - `RABBITMQ_URL`: amqp://rabbitmq:5672
+- `REDIS_HOST`: redis
+- `REDIS_PORT`: 6379
 
 ### Product Service
 - `ASPNETCORE_ENVIRONMENT`: Development
@@ -115,6 +168,8 @@ SELECT * FROM orders WHERE user_id = 'id girilecek';
 - `RabbitMQ__Host`: rabbitmq
 - `RabbitMQ__Username`: guest
 - `RabbitMQ__Password`: guest
+- `REDIS_HOST`: redis
+- `REDIS_PORT`: 6379
 
 ### Order Tracking Service
 - `PORT`: 5000
@@ -122,6 +177,8 @@ SELECT * FROM orders WHERE user_id = 'id girilecek';
 - `RABBITMQ_URL`: amqp://guest:guest@rabbitmq:5672
 - `JWT_SECRET`: V58XuK9zPq4sDwjEbCfa7hJLgMrTn2YH
 - `NODE_ENV`: development
+- `REDIS_HOST`: redis
+- `REDIS_PORT`: 6379
 
 ### Payment Service
 - `PORT`: 4004
@@ -135,14 +192,20 @@ SELECT * FROM orders WHERE user_id = 'id girilecek';
 - `MYSQL_USER`: payment_user
 - `MYSQL_PASSWORD`: payment_password
 - `MYSQL_DATABASE`: payment_db
+- `REDIS_HOST`: redis
+- `REDIS_PORT`: 6379
 
 ### API Gateway
 - `PORT`: 4000
 - `JWT_SECRET`: V58XuK9zPq4sDwjEbCfa7hJLgMrTn2YH
+- `REDIS_HOST`: redis
+- `REDIS_PORT`: 6379
 
 ### Cart Service
 - `PORT`: 4003
 - `JWT_SECRET`: V58XuK9zPq4sDwjEbCfa7hJLgMrTn2YH
+- `REDIS_HOST`: redis
+- `REDIS_PORT`: 6379
 
 ### Monitoring
 - `GF_SECURITY_ADMIN_PASSWORD`: admin
@@ -164,6 +227,8 @@ SELECT * FROM orders WHERE user_id = 'id girilecek';
 - MongoDB: 27017
 - PostgreSQL: 5432
 - MySQL: 3306
+- Redis: 6379
+- Redis Commander: 8081
 - Node Exporter: 9100
 
 ## Monitoring Erişimi
@@ -171,6 +236,7 @@ SELECT * FROM orders WHERE user_id = 'id girilecek';
 - Grafana: http://localhost:3001 (admin/admin)
 - Prometheus: http://localhost:9090
 - RabbitMQ Management: http://localhost:15672 (guest/guest)
+- Redis Commander: http://localhost:8081
 
 ## Veritabanı Bağlantıları
 
@@ -192,6 +258,30 @@ SELECT * FROM orders WHERE user_id = 'id girilecek';
 - Database: payment_db
 - Username: payment_user
 - Password: payment_password
+
+### Redis
+- Host: localhost
+- Port: 6379
+- Web UI: http://localhost:8081 (Redis Commander)
+
+## Redis Cache Yapısı
+
+### Cache Anahtarları
+- **User Sessions**: `user:session:{userId}` (TTL: 30 dakika)
+- **User Profiles**: `user:profile:{userId}` (TTL: 30 dakika)
+- **Product Data**: `product:{productId}` (TTL: 30 dakika)
+- **Product Prices**: `product:price:{productId}` (TTL: 1 saat)
+- **Cart Data**: `cart:{userId}` (TTL: 1 saat)
+- **Order Data**: `order:{orderId}` (TTL: 1 saat)
+- **Payment Sessions**: `payment:session:{userId}` (TTL: 30 dakika)
+- **API Responses**: `api:response:{endpoint}:{params}` (TTL: 10 dakika)
+- **Rate Limiting**: `rate_limit:{userId}:{endpoint}` (TTL: 1 dakika)
+
+### Cache Stratejileri
+- **Cache-Aside**: Veri önce cache'den kontrol edilir, yoksa veritabanından alınıp cache'e konur
+- **Write-Through**: Veri hem veritabanına hem cache'e eş zamanlı yazılır
+- **Write-Behind**: Veri önce cache'e yazılır, daha sonra asenkron olarak veritabanına yazılır
+- **TTL (Time To Live)**: Tüm cache verilerinin otomatik sona erme süreleri vardır
 
 
 
