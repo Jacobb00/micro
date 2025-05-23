@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const rabbitmq = require('../config/rabbitmq');
+const redisCache = require('../config/redis');
 const { authRequests, userOperations, timeDbQuery } = require('../config/metrics');
 
 const userController = {
@@ -63,9 +64,24 @@ const userController = {
         try {
             const { email, password } = req.body;
 
-            const user = await timeDbQuery('find_user', () => 
-                User.findOne({ where: { email } })
-            );
+            // Önce cache'den kullanıcıyı kontrol et
+            const cacheKey = `user:login:${email}`;
+            let user = await redisCache.get(cacheKey);
+            
+            if (!user) {
+                user = await timeDbQuery('find_user', () => 
+                    User.findOne({ where: { email } })
+                );
+                
+                if (user) {
+                    // Kullanıcıyı cache'le (5 dakika)
+                    await redisCache.set(cacheKey, user, 300);
+                }
+            } else {
+                console.log(`Cache hit for user login: ${email}`);
+                // Cache'den gelen data için User instance oluştur
+                user = User.build(user, { isNewRecord: false });
+            }
             
             if (!user) {
                 authRequests.inc({ type: 'login', status: 'failure' });
@@ -84,6 +100,14 @@ const userController = {
                 { expiresIn: '24h' }
             );
 
+            // User session'ı cache'le
+            const userSessionData = {
+                id: user.id,
+                email: user.email,
+                name: user.name
+            };
+            await redisCache.cacheUserSession(user.id, userSessionData);
+
             // RabbitMQ'ya giriş olayı mesajı gönder
             await rabbitmq.publishMessage(
                 'user_events',
@@ -99,11 +123,7 @@ const userController = {
             res.json({
                 message: 'Giriş başarılı',
                 token,
-                user: {
-                    id: user.id,
-                    email: user.email,
-                    name: user.name
-                }
+                user: userSessionData
             });
         } catch (error) {
             console.error('Giriş hatası:', error);
@@ -114,11 +134,30 @@ const userController = {
 
     async getProfile(req, res) {
         try {
-            const user = await timeDbQuery('find_user', () => 
-                User.findByPk(req.user.id, {
-                    attributes: { exclude: ['password'] }
-                })
-            );
+            // Önce session cache'den kontrol et
+            let user = await redisCache.getUserSession(req.user.id);
+            
+            if (!user) {
+                console.log(`Cache miss for user profile: ${req.user.id}`);
+                user = await timeDbQuery('find_user', () => 
+                    User.findByPk(req.user.id, {
+                        attributes: { exclude: ['password'] }
+                    })
+                );
+                
+                if (user) {
+                    // User session'ı cache'le
+                    const userSessionData = {
+                        id: user.id,
+                        email: user.email,
+                        name: user.name
+                    };
+                    await redisCache.cacheUserSession(user.id, userSessionData);
+                    user = userSessionData;
+                }
+            } else {
+                console.log(`Cache hit for user profile: ${req.user.id}`);
+            }
             
             if (!user) {
                 userOperations.inc({ operation: 'profile_get', status: 'failure' });
@@ -154,6 +193,15 @@ const userController = {
                 })
             );
 
+            // Cache'i invalidate et
+            await redisCache.invalidateUserSession(user.id);
+            
+            // Login cache'ini de temizle (eğer email değiştiyse)
+            if (email && email !== user.email) {
+                await redisCache.del(`user:login:${user.email}`);
+                await redisCache.del(`user:login:${email}`);
+            }
+
             // RabbitMQ'ya profil güncelleme mesajı gönder
             await rabbitmq.publishMessage(
                 'user_events',
@@ -165,14 +213,19 @@ const userController = {
                 }
             );
 
+            const updatedUserData = {
+                id: user.id,
+                email: user.email,
+                name: user.name
+            };
+
+            // Güncellenmiş user session'ı cache'le
+            await redisCache.cacheUserSession(user.id, updatedUserData);
+
             userOperations.inc({ operation: 'profile_update', status: 'success' });
             res.json({
                 message: 'Profil başarıyla güncellendi',
-                user: {
-                    id: user.id,
-                    email: user.email,
-                    name: user.name
-                }
+                user: updatedUserData
             });
         } catch (error) {
             console.error('Profil güncelleme hatası:', error);

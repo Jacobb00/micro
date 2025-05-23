@@ -10,6 +10,7 @@ const { setupConsumers } = require('./services/messageConsumer');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 const logger = require('./config/logger');
 const { register, metricsMiddleware } = require('./config/metrics');
+const orderRedisCache = require('./redis');
 
 // Import routes
 const orderRoutes = require('./routes/orderRoutes');
@@ -41,8 +42,21 @@ app.use('/api/orders', orderRoutes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', service: 'order-tracking-service' });
+app.get('/health', async (req, res) => {
+  try {
+    const redisHealth = await orderRedisCache.healthCheck();
+    res.status(200).json({ 
+      status: 'OK', 
+      service: 'order-tracking-service',
+      redis: redisHealth
+    });
+  } catch (error) {
+    res.status(200).json({ 
+      status: 'OK', 
+      service: 'order-tracking-service',
+      redis: { status: 'disconnected', message: 'Redis kontrol edilemedi' }
+    });
+  }
 });
 
 // Error handling middleware
@@ -54,6 +68,15 @@ const startServer = async () => {
   try {
     // Connect to MongoDB
     await connectDB();
+    
+    // Connect to Redis - optional
+    try {
+      await orderRedisCache.connect();
+      logger.info('Redis bağlantısı başarılı');
+    } catch (error) {
+      logger.error(`Redis bağlantı hatası: ${error.message}`);
+      logger.info('Redis olmadan devam ediliyor...');
+    }
     
     // Connect to RabbitMQ
     await connectRabbitMQ();

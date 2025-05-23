@@ -3,10 +3,22 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import jwt from 'jsonwebtoken';
 import { register, metricsMiddleware, updateCartItemsMetric } from './metrics.js';
+import cartRedisCache from './redis.js';
 
 const app = express();
 const port = process.env.PORT || 4003;
 const JWT_SECRET = process.env.JWT_SECRET || 'secret-key';
+
+// Redis bağlantısını başlat
+(async () => {
+    try {
+        await cartRedisCache.connect();
+        console.log('Cart Service - Redis bağlantısı başarılı');
+    } catch (error) {
+        console.error('Cart Service - Redis bağlantı hatası:', error);
+        console.log('Cart Service - Redis olmadan devam ediliyor...');
+    }
+})();
 
 // Enable CORS for all routes with proper options
 app.use(cors({
@@ -32,11 +44,21 @@ app.get('/metrics', async (req, res) => {
 });
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-    res.status(200).json({
-        status: 'UP',
-        service: 'cart-service'
-    });
+app.get('/health', async (req, res) => {
+    try {
+        const redisHealth = await cartRedisCache.healthCheck();
+        res.status(200).json({
+            status: 'UP',
+            service: 'cart-service',
+            redis: redisHealth
+        });
+    } catch (error) {
+        res.status(200).json({
+            status: 'UP',
+            service: 'cart-service',
+            redis: { status: 'disconnected', message: 'Redis kontrol edilemedi' }
+        });
+    }
 });
 
 // Log all requests for debugging
@@ -96,7 +118,7 @@ app.post('/clear', authenticateJWT, clearCartHandler);
 app.post('/api/cart/clear', authenticateJWT, clearCartHandler);
 
 // Handler functions
-function addToCartHandler(req, res) {
+async function addToCartHandler(req, res) {
     const userId = req.user.id;
     const { productId, quantity } = req.body;
     
@@ -105,51 +127,101 @@ function addToCartHandler(req, res) {
     if (!userId || !productId || !quantity) {
         return res.status(400).json({ error: 'userId, productId, and quantity required' });
     }
-    if (!userCarts[userId]) userCarts[userId] = [];
-    const existing = userCarts[userId].find(item => item.productId === productId);
+
+    // Önce cache'den cart'ı al
+    let cart = await cartRedisCache.getCart(userId);
+    
+    // Cache'de yoksa memory'den al
+    if (!cart) {
+        cart = userCarts[userId] || [];
+        console.log(`Cache miss for cart ${userId}, using memory`);
+    } else {
+        console.log(`Cache hit for cart ${userId}`);
+    }
+
+    const existing = cart.find(item => item.productId === productId);
     if (existing) {
         existing.quantity += quantity;
     } else {
-        userCarts[userId].push({ productId, quantity });
+        cart.push({ productId, quantity });
     }
     
-    console.log(`Cart for user ${userId} now has ${userCarts[userId].length} items`);
+    // Hem memory hem cache'i güncelle
+    userCarts[userId] = cart;
+    await cartRedisCache.setCart(userId, cart, 3600); // 1 saat cache
+    
+    console.log(`Cart for user ${userId} now has ${cart.length} items`);
     
     // Update metrics
-    updateCartItemsMetric(userId, userCarts[userId].length);
+    updateCartItemsMetric(userId, cart.length);
     
-    res.status(200).json({ message: 'Product added to cart', cart: userCarts[userId] });
+    res.status(200).json({ message: 'Product added to cart', cart: cart });
 }
 
-function getCartHandler(req, res) {
+async function getCartHandler(req, res) {
     const userId = req.user.id;
     
     console.log(`Getting cart for user ${userId}`);
     
     if (!userId) return res.status(400).json({ error: 'userId required' });
-    const cart = userCarts[userId] || [];
+    
+    // Önce cache'den kontrol et
+    let cart = await cartRedisCache.getCart(userId);
+    
+    if (!cart) {
+        // Cache'de yoksa memory'den al
+        cart = userCarts[userId] || [];
+        console.log(`Cache miss for cart ${userId}, using memory`);
+        
+        // Memory'de varsa cache'le
+        if (cart.length > 0) {
+            await cartRedisCache.setCart(userId, cart, 3600);
+        }
+    } else {
+        console.log(`Cache hit for cart ${userId}`);
+        // Memory'yi de güncelle
+        userCarts[userId] = cart;
+    }
     
     console.log(`Returning cart with ${cart.length} items for user ${userId}`);
     
     res.status(200).json({ cart: cart });
 }
 
-function removeFromCartHandler(req, res) {
+async function removeFromCartHandler(req, res) {
     const userId = req.user.id;
     const { productId } = req.body;
     if (!userId || !productId) {
         return res.status(400).json({ error: 'userId and productId required' });
     }
-    if (!userCarts[userId]) return res.status(404).json({ error: 'Cart not found' });
-    userCarts[userId] = userCarts[userId].filter(item => item.productId !== productId);
+    
+    // Önce cache'den cart'ı al
+    let cart = await cartRedisCache.getCart(userId);
+    
+    if (!cart) {
+        cart = userCarts[userId] || [];
+        console.log(`Cache miss for cart ${userId}, using memory`);
+    } else {
+        console.log(`Cache hit for cart ${userId}`);
+    }
+    
+    if (cart.length === 0) {
+        return res.status(404).json({ error: 'Cart not found' });
+    }
+    
+    cart = cart.filter(item => item.productId !== productId);
+    
+    // Hem memory hem cache'i güncelle
+    userCarts[userId] = cart;
+    await cartRedisCache.setCart(userId, cart, 3600);
     
     // Update metrics
-    updateCartItemsMetric(userId, userCarts[userId].length);
+    updateCartItemsMetric(userId, cart.length);
     
-    res.status(200).json({ message: 'Product removed', cart: userCarts[userId] });
+    res.status(200).json({ message: 'Product removed', cart: cart });
 }
 
-function clearCartHandler(req, res) {
+async function clearCartHandler(req, res) {
     const userId = req.user.id;
     
     console.log(`Clearing cart for user ${userId}`);
@@ -158,6 +230,9 @@ function clearCartHandler(req, res) {
     
     // Clear the cart
     userCarts[userId] = [];
+    
+    // Cache'den de temizle
+    await cartRedisCache.deleteCart(userId);
     
     // Update metrics
     updateCartItemsMetric(userId, 0);

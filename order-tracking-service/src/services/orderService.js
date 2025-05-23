@@ -2,13 +2,28 @@ const Order = require('../models/Order');
 const logger = require('../config/logger');
 const { getChannel } = require('../config/rabbitmq');
 const axios = require('axios');
+const orderRedisCache = require('../redis');
 
 /**
  * Get order by ID
  */
 const getOrderById = async (orderId) => {
   try {
+    // Cache'den kontrol et
+    const cachedOrder = await orderRedisCache.getOrder(orderId);
+    if (cachedOrder) {
+      logger.info(`Order ${orderId} cache'den getirildi`);
+      return cachedOrder;
+    }
+
+    // Cache miss - veritabanından getir
     const order = await Order.findById(orderId);
+    
+    // Cache'e kaydet (30 dakika TTL)
+    if (order) {
+      await orderRedisCache.cacheOrder(orderId, order, 1800);
+    }
+    
     return order;
   } catch (error) {
     logger.error(`Error fetching order: ${error.message}`);
@@ -21,8 +36,14 @@ const getOrderById = async (orderId) => {
  */
 const getOrdersByUserId = async (userId) => {
   try {
-    const orders = await Order.find({ userId }).sort({ createdAt: -1 });
-    return orders;
+    return await orderRedisCache.cacheFunction(
+      `user:orders:${userId}`,
+      async () => {
+        const orders = await Order.find({ userId }).sort({ createdAt: -1 });
+        return orders;
+      },
+      900 // 15 dakika cache
+    );
   } catch (error) {
     logger.error(`Error fetching user orders: ${error.message}`);
     throw error;
@@ -34,8 +55,14 @@ const getOrdersByUserId = async (userId) => {
  */
 const getAllOrders = async () => {
   try {
-    const orders = await Order.find().sort({ createdAt: -1 });
-    return orders;
+    return await orderRedisCache.cacheFunction(
+      'orders:all',
+      async () => {
+        const orders = await Order.find().sort({ createdAt: -1 });
+        return orders;
+      },
+      600 // 10 dakika cache (admin verisi)
+    );
   } catch (error) {
     logger.error(`Error fetching all orders: ${error.message}`);
     throw error;
@@ -55,6 +82,13 @@ const createOrder = async (orderData) => {
     });
     
     const savedOrder = await newOrder.save();
+    
+    // Cache invalidation - yeni sipariş eklendi
+    await orderRedisCache.del(`user:orders:${orderData.userId}`);
+    await orderRedisCache.del('orders:all');
+    // Yeni siparişi cache'le
+    await orderRedisCache.cacheOrder(savedOrder._id, savedOrder, 1800);
+    await orderRedisCache.cacheOrderStatus(savedOrder._id, 'PENDING', 1800);
     
     // Publish to RabbitMQ
     const channel = getChannel();
@@ -98,6 +132,12 @@ const updateOrderStatus = async (orderId, status, note) => {
     // Update the order status
     await order.updateStatus(status, note);
     
+    // Cache invalidation - sipariş güncellendi
+    await orderRedisCache.deleteOrder(orderId);
+    await orderRedisCache.del(`user:orders:${order.userId}`);
+    await orderRedisCache.del('orders:all');
+    await orderRedisCache.cacheOrderStatus(orderId, status, 1800); // Yeni status'u cache'le
+    
     // Publish status change event
     const channel = getChannel();
     channel.sendToQueue(
@@ -138,6 +178,12 @@ const confirmOrder = async (orderId, note) => {
     
     // Update the order status to CONFIRMED
     await order.updateStatus('CONFIRMED', note || 'Order confirmed');
+    
+    // Cache invalidation - sipariş onaylandı
+    await orderRedisCache.deleteOrder(orderId);
+    await orderRedisCache.del(`user:orders:${order.userId}`);
+    await orderRedisCache.del('orders:all');
+    await orderRedisCache.cacheOrderStatus(orderId, 'CONFIRMED', 1800);
     
     // Notify stock service to decrease quantities
     const channel = getChannel();
