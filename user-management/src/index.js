@@ -4,6 +4,7 @@ require('dotenv').config();
 
 const sequelize = require('./config/database');
 const rabbitmq = require('./config/rabbitmq');
+const redisCache = require('./config/redis');
 const User = require('./models/User');
 const userController = require('./controllers/userController');
 const auth = require('./middleware/auth');
@@ -26,12 +27,23 @@ app.get('/metrics', async (req, res) => {
 });
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'UP', 
-    service: 'user-service',
-    database: 'connected'
-  });
+app.get('/health', async (req, res) => {
+    try {
+        const redisHealth = await redisCache.healthCheck();
+        res.status(200).json({ 
+            status: 'UP', 
+            service: 'user-service',
+            database: 'connected',
+            redis: redisHealth
+        });
+    } catch (error) {
+        res.status(200).json({ 
+            status: 'UP', 
+            service: 'user-service',
+            database: 'connected',
+            redis: { status: 'disconnected', message: 'Redis kontrol edilemedi' }
+        });
+    }
 });
 
 // Routes
@@ -50,6 +62,15 @@ const startServer = async () => {
         // Tabloları senkronize et
         await sequelize.sync({ force: true });
         console.log('Tablolar senkronize edildi');
+
+        // Redis bağlantısı - optional
+        try {
+            await redisCache.connect();
+            console.log('Redis bağlantısı başarılı');
+        } catch (error) {
+            console.error('Redis bağlantı hatası:', error);
+            console.log('Redis olmadan devam ediliyor...');
+        }
 
         // RabbitMQ bağlantısı - optional
         try {

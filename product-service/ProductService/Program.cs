@@ -14,6 +14,7 @@ using Swashbuckle.AspNetCore.Swagger;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using Swashbuckle.AspNetCore.SwaggerUI;
 using Prometheus;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,6 +44,33 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection("MongoDbSettings"));
 builder.Services.AddSingleton<IMongoDbContext, MongoDbContext>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
+
+// Configure Redis
+try 
+{
+    var redisConnectionString = builder.Configuration["Redis:ConnectionString"] ?? "localhost:6379";
+    builder.Services.AddSingleton<IConnectionMultiplexer>(provider =>
+    {
+        try
+        {
+            return ConnectionMultiplexer.Connect(redisConnectionString);
+        }
+        catch (Exception ex)
+        {
+            var logger = provider.GetService<ILogger<Program>>();
+            logger?.LogError(ex, "Redis bağlantısı kurulamadı: {ConnectionString}", redisConnectionString);
+            // Return a dummy connection that always fails gracefully
+            return null!;
+        }
+    });
+    
+    builder.Services.AddScoped<IRedisCache, RedisCache>();
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Redis konfigürasyonu başarısız: {ex.Message}");
+    // Redis olmadan devam et
+}
 
 // Configure MassTransit with RabbitMQ
 builder.Services.AddMassTransit(config =>
